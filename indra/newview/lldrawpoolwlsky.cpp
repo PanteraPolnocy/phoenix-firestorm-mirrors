@@ -41,6 +41,7 @@
 #include "llviewershadermgr.h"
 #include "llviewercamera.h"
 #include "pipeline.h"
+#include "lldrawpoolmirror.h"
 #include "llsky.h"
 #include "llvowlsky.h"
 #include "llsettingsvo.h"
@@ -137,7 +138,8 @@ void LLDrawPoolWLSky::renderDome(const LLVector3& camPosLocal, F32 camHeightLoca
 	gGL.pushMatrix();
 
 	//chop off translation
-	if (LLPipeline::sReflectionRender && camPosLocal.mV[2] > 256.f)
+	bool mirror_render=((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->getMirrorRender();
+	if (LLPipeline::sReflectionRender && camPosLocal.mV[2] > 256.f && !mirror_render)
 	{
 		gGL.translatef(camPosLocal.mV[0], camPosLocal.mV[1], 256.f-camPosLocal.mV[2]*0.5f);
 	}

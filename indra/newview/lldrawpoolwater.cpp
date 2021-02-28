@@ -27,6 +27,7 @@
 #include "llviewerprecompiledheaders.h"
 #include "llfeaturemanager.h"
 #include "lldrawpoolwater.h"
+#include "lldrawpoolmirror.h"
 
 #include "llviewercontrol.h"
 #include "lldir.h"
@@ -166,8 +167,10 @@ void LLDrawPoolWater::render(S32 pass)
 
 	std::sort(mDrawFace.begin(), mDrawFace.end(), LLFace::CompareDistanceGreater());
 
+	bool inside_mirror=((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->getMirrorRender();
+
 	// See if we are rendering water as opaque or not
-	if (!LLPipeline::sRenderTransparentWater)
+	if (inside_mirror || !LLPipeline::sRenderTransparentWater)
 	{
 		// render water for low end hardware
 		renderOpaqueLegacyWater();

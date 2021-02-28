@@ -57,6 +57,7 @@
 #include "lldrawpoolavatar.h"
 #include "lldrawpoolground.h"
 #include "lldrawpoolbump.h"
+#include "lldrawpoolmirror.h"
 #include "lldrawpooltree.h"
 #include "lldrawpoolwater.h"
 #include "llface.h"
@@ -299,6 +300,7 @@ std::string gPoolNames[] =
 {
 	// Correspond to LLDrawpool enum render type
 	"NONE",
+	"POOL_MIRROR",
 	"POOL_SIMPLE",
 	"POOL_GROUND",
 	"POOL_FULLBRIGHT",
@@ -419,6 +421,7 @@ LLPipeline::LLPipeline() :
 	mTerrainPool(NULL),
 	mWaterPool(NULL),
 	mGroundPool(NULL),
+	mMirrorPool(NULL),
 	mSimplePool(NULL),
 	mGrassPool(NULL),
 	mAlphaMaskPool(NULL),
@@ -491,6 +494,7 @@ void LLPipeline::init()
 
 	//create render pass pools
 	getPool(LLDrawPool::POOL_ALPHA);
+	getPool(LLDrawPool::POOL_MIRROR);
 	getPool(LLDrawPool::POOL_SIMPLE);
 	getPool(LLDrawPool::POOL_ALPHA_MASK);
 	getPool(LLDrawPool::POOL_FULLBRIGHT_ALPHA_MASK);
@@ -728,6 +732,8 @@ void LLPipeline::cleanup()
 	mGroundPool = NULL;
 	delete mSimplePool;
 	mSimplePool = NULL;
+	delete mMirrorPool;
+	mMirrorPool = NULL;
 	delete mFullbrightPool;
 	mFullbrightPool = NULL;
 	delete mInvisiblePool;
@@ -1699,6 +1705,10 @@ LLDrawPool *LLPipeline::findPool(const U32 type, LLViewerTexture *tex0)
 	LLDrawPool *poolp = NULL;
 	switch( type )
 	{
+	case LLDrawPool::POOL_MIRROR:
+		poolp = mMirrorPool;
+		break;
+
 	case LLDrawPool::POOL_SIMPLE:
 		poolp = mSimplePool;
 		break;
@@ -5828,6 +5838,18 @@ void LLPipeline::addToQuickLookup( LLDrawPool* new_poolp )
 
 	switch( new_poolp->getType() )
 	{
+	case LLDrawPool::POOL_MIRROR:
+		if (mMirrorPool)
+		{
+			llassert(0);
+			LL_WARNS() << "Ignoring duplicate mirror pool." << LL_ENDL;
+		}
+		else
+		{
+			mMirrorPool = (LLRenderPass*) new_poolp;
+		}
+		break;
+
 	case LLDrawPool::POOL_SIMPLE:
 		if (mSimplePool)
 		{
@@ -6028,6 +6050,11 @@ void LLPipeline::removeFromQuickLookup( LLDrawPool* poolp )
 	assertInitialized();
 	switch( poolp->getType() )
 	{
+	case LLDrawPool::POOL_MIRROR:
+		llassert(mMirrorPool == poolp);
+		mMirrorPool = NULL;
+		break;
+
 	case LLDrawPool::POOL_SIMPLE:
 		llassert(mSimplePool == poolp);
 		mSimplePool = NULL;
@@ -9343,6 +9370,7 @@ void LLPipeline::renderDeferredLighting(LLRenderTarget *screen_target)
                           LLPipeline::RENDER_TYPE_VOLUME,
                           LLPipeline::RENDER_TYPE_GLOW,
                           LLPipeline::RENDER_TYPE_BUMP,
+						  LLPipeline::RENDER_TYPE_PASS_MIRROR,
                           LLPipeline::RENDER_TYPE_PASS_SIMPLE,
                           LLPipeline::RENDER_TYPE_PASS_ALPHA,
                           LLPipeline::RENDER_TYPE_PASS_ALPHA_MASK,
@@ -9583,6 +9611,14 @@ inline float sgn(float a)
 
 void LLPipeline::generateWaterReflection(LLCamera& camera_in)
 {	
+	// do not render water reflections during mirror rendering (yet),
+	// it looks weirdly distorted currently
+	bool inside_mirror=((LLDrawPoolMirror*) getPool(LLDrawPool::POOL_MIRROR))->getMirrorRender();
+	if(inside_mirror)
+	{
+		return;
+	}
+
 	if (LLPipeline::sWaterReflections && assertInitialized() && LLDrawPoolWater::sNeedsReflectionUpdate)
 	{
 		bool skip_avatar_update = false;
@@ -9947,6 +9983,7 @@ void LLPipeline::renderShadow(glh::matrix4f& view, glh::matrix4f& proj, LLCamera
 	LLPipeline::sShadowRender = true;
 	
 	static const U32 types[] = { 
+		LLRenderPass::PASS_MIRROR,
 		LLRenderPass::PASS_SIMPLE, 
 		LLRenderPass::PASS_FULLBRIGHT, 
 		LLRenderPass::PASS_SHINY, 
@@ -10423,7 +10460,8 @@ void LLPipeline::generateSunShadow(LLCamera& camera)
 	}
 
 	pushRenderTypeMask();
-	andRenderTypeMask(LLPipeline::RENDER_TYPE_SIMPLE,
+	andRenderTypeMask(LLPipeline::RENDER_TYPE_MIRROR,
+					LLPipeline::RENDER_TYPE_SIMPLE,
 					LLPipeline::RENDER_TYPE_ALPHA,
 					LLPipeline::RENDER_TYPE_GRASS,
 					LLPipeline::RENDER_TYPE_FULLBRIGHT,
@@ -10439,6 +10477,7 @@ void LLPipeline::generateSunShadow(LLCamera& camera)
 					LLPipeline::RENDER_TYPE_PASS_ALPHA_MASK,
 					LLPipeline::RENDER_TYPE_PASS_FULLBRIGHT_ALPHA_MASK,
 					LLPipeline::RENDER_TYPE_PASS_GRASS,
+				    LLPipeline::RENDER_TYPE_PASS_MIRROR,
 					LLPipeline::RENDER_TYPE_PASS_SIMPLE,
 					LLPipeline::RENDER_TYPE_PASS_BUMP,
 					LLPipeline::RENDER_TYPE_PASS_FULLBRIGHT,
@@ -11235,6 +11274,7 @@ void LLPipeline::generateImpostor(LLVOAvatar* avatar)
 			LLPipeline::RENDER_TYPE_VOLUME,
 			LLPipeline::RENDER_TYPE_GLOW,
 						LLPipeline::RENDER_TYPE_BUMP,
+						LLPipeline::RENDER_TYPE_PASS_MIRROR,
 						LLPipeline::RENDER_TYPE_PASS_SIMPLE,
 						LLPipeline::RENDER_TYPE_PASS_ALPHA,
 						LLPipeline::RENDER_TYPE_PASS_ALPHA_MASK,
@@ -11253,6 +11293,7 @@ void LLPipeline::generateImpostor(LLVOAvatar* avatar)
 			LLPipeline::RENDER_TYPE_ALPHA_MASK,
 			LLPipeline::RENDER_TYPE_FULLBRIGHT_ALPHA_MASK,
 			LLPipeline::RENDER_TYPE_INVISIBLE,
+			LLPipeline::RENDER_TYPE_MIRROR,
 			LLPipeline::RENDER_TYPE_SIMPLE,
 						END_RENDER_TYPES);
 	}

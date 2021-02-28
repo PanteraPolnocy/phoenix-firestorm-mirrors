@@ -456,6 +456,7 @@ public:
 		RENDER_TYPE_WL_SKY						= LLDrawPool::POOL_WL_SKY,
 		RENDER_TYPE_GROUND						= LLDrawPool::POOL_GROUND,	
 		RENDER_TYPE_TERRAIN						= LLDrawPool::POOL_TERRAIN,
+		RENDER_TYPE_MIRROR						= LLDrawPool::POOL_MIRROR,
 		RENDER_TYPE_SIMPLE						= LLDrawPool::POOL_SIMPLE,
 		RENDER_TYPE_GRASS						= LLDrawPool::POOL_GRASS,
 		RENDER_TYPE_ALPHA_MASK					= LLDrawPool::POOL_ALPHA_MASK,
@@ -471,6 +472,7 @@ public:
 		RENDER_TYPE_WATER						= LLDrawPool::POOL_WATER,
  		RENDER_TYPE_ALPHA						= LLDrawPool::POOL_ALPHA,
 		RENDER_TYPE_GLOW						= LLDrawPool::POOL_GLOW,
+		RENDER_TYPE_PASS_MIRROR					= LLRenderPass::PASS_MIRROR,
 		RENDER_TYPE_PASS_SIMPLE 				= LLRenderPass::PASS_SIMPLE,
 		RENDER_TYPE_PASS_GRASS					= LLRenderPass::PASS_GRASS,
 		RENDER_TYPE_PASS_FULLBRIGHT				= LLRenderPass::PASS_FULLBRIGHT,
@@ -860,6 +862,7 @@ protected:
 	LLDrawPool*					mTerrainPool;
 	LLDrawPool*					mWaterPool;
 	LLDrawPool*					mGroundPool;
+	LLRenderPass*				mMirrorPool;
 	LLRenderPass*				mSimplePool;
 	LLRenderPass*				mGrassPool;
 	LLRenderPass*				mAlphaMaskPool;

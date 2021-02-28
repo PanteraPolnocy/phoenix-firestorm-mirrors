@@ -383,6 +383,8 @@ public:
 				lhs->getTexture() < rhs->getTexture();
 		}
 	};
+
+	bool mIsMirror;
 };
 
 #endif // LL_LLFACE_H

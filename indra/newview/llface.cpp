@@ -40,6 +40,7 @@
 
 #include "lldrawpoolavatar.h"
 #include "lldrawpoolbump.h"
+#include "lldrawpoolmirror.h"
 #include "llgl.h"
 #include "llrender.h"
 #include "lllightconstants.h"
@@ -146,6 +147,8 @@ void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 	mGeomIndex		= 0;
 	mIndicesCount	= 0;
 
+	mIsMirror = false;
+
 	//special value to indicate uninitialized position
 	mIndicesIndex	= 0xFFFFFFFF;
 	
@@ -181,6 +184,13 @@ void LLFace::init(LLDrawable* drawablep, LLViewerObject* objp)
 
 void LLFace::destroy()
 {
+	if(mIsMirror)
+	{
+		mIsMirror=false;
+		((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->remMirror(this);
+		LL_DEBUGS("Mirrors") << "+++***+++ Mirror removed from face " << this << LL_ENDL;
+	}
+
 	if (gDebugGL)
 	{
 		gPipeline.checkReferences(this);
@@ -307,6 +317,33 @@ void LLFace::setTexture(U32 ch, LLViewerTexture* tex)
 	}
 
 	mTexture[ch] = tex ;
+
+	// Mirrors
+	// hacked into here just to make it work for the moment, since we do not
+	// have server support (yet)
+
+	// only look at diffuse map textures
+	if(ch!=LLRender::DIFFUSE_MAP)
+	{
+		return;
+	}
+
+	// this doesn't work with ==mirror_texture below for some reason
+	// static LLCachedControl<std::string> mirror_texture(gSavedSettings,"MirrorTexture");
+
+	std::string mirror_texture=gSavedSettings.getString("MirrorTexture");
+	if(!mIsMirror && tex && tex->getID().asString()==mirror_texture)
+	{
+		mIsMirror=true;
+		((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->addMirror(this);
+		LL_DEBUGS("Mirrors") << "+++***+++ Mirror added on face " << this << LL_ENDL;
+	}
+	else if(mIsMirror && (!tex || tex->getID().asString()!=mirror_texture))
+	{
+		mIsMirror=false;
+		((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->remMirror(this);
+		LL_DEBUGS("Mirrors") << "+++***+++ Mirror removed from face " << this << LL_ENDL;
+	}
 }
 
 void LLFace::setTexture(LLViewerTexture* tex) 

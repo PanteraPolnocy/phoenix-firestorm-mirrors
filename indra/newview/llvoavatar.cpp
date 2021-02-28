@@ -52,6 +52,7 @@
 #include "llviewercontrol.h"
 #include "llcallingcard.h"		// IDEVO for LLAvatarTracker
 #include "lldrawpoolavatar.h"
+#include "lldrawpoolmirror.h"
 #include "lldriverparam.h"
 #include "llpolyskeletaldistortion.h"
 #include "lleditingmotion.h"
@@ -5638,7 +5639,8 @@ U32 LLVOAvatar::renderSkinned()
 				}
 			}
 
-			if (!isSelf() || gAgent.needsRenderHead() || LLPipeline::sShadowRender)
+			bool inside_mirror=((LLDrawPoolMirror*) gPipeline.getPool(LLDrawPool::POOL_MIRROR))->getMirrorRender();
+			if (!isSelf() || gAgent.needsRenderHead() || LLPipeline::sShadowRender || inside_mirror)
 			{
 				if(eyelash_mesh)
 				{

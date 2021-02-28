@@ -46,7 +46,8 @@ public:
 	enum
 	{
 		// Correspond to LLPipeline render type
-		POOL_SIMPLE = 1,
+		POOL_MIRROR = 1,
+		POOL_SIMPLE,
 		POOL_GROUND,
 		POOL_FULLBRIGHT,
 		POOL_BUMP,
@@ -127,7 +128,8 @@ class LLRenderPass : public LLDrawPool
 public:
 	enum
 	{
-		PASS_SIMPLE = NUM_POOL_TYPES,
+		PASS_MIRROR = NUM_POOL_TYPES,
+		PASS_SIMPLE,
 		PASS_GRASS,
 		PASS_FULLBRIGHT,
 		PASS_INVISIBLE,
