@@ -237,14 +237,11 @@ elseif(LINUX)
       set(release_files
         #libapr-1.so.0
         #libaprutil-1.so.0
-        libatk-1.0.so
         #libdb-5.1.so
         ${EXPAT_COPY}
         #libfreetype.so.6.6.2
         #libfreetype.so.6
         #libGLOD.so
-        libgmodule-2.0.so
-        libgobject-2.0.so
         libhunspell-1.3.so.0.0.0
         libopenal.so
         #libopenjpeg.so
@@ -312,10 +309,9 @@ to_staging_dirs(
     ${release_files}
     )
 
-#<FS:TS> We need to do this regardless
-#if(NOT USESYSTEMLIBS)
+if(NOT USESYSTEMLIBS)
   add_custom_target(
       stage_third_party_libs ALL
       DEPENDS ${third_party_targets}
       )
-#endif(NOT USESYSTEMLIBS)
+endif(NOT USESYSTEMLIBS)

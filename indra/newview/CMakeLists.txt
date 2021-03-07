@@ -39,7 +39,7 @@ include(LLPlugin)
 include(LLPrimitive)
 include(LLRender)
 include(LLUI)
-include(LLVFS)
+include(LLFileSystem)
 include(LLWindow)
 include(LLXML)
 include(NDOF)
@@ -95,7 +95,7 @@ include_directories(
     ${LLPRIMITIVE_INCLUDE_DIRS}
     ${LLRENDER_INCLUDE_DIRS}
     ${LLUI_INCLUDE_DIRS}
-    ${LLVFS_INCLUDE_DIRS}
+    ${LLFILESYSTEM_INCLUDE_DIRS}
     ${LLWINDOW_INCLUDE_DIRS}
     ${LLXML_INCLUDE_DIRS}
     ${LLLOGIN_INCLUDE_DIRS}
@@ -2091,9 +2091,13 @@ set(viewer_APPSETTINGS_FILES
     app_settings/viewerart.xml
     ${CMAKE_SOURCE_DIR}/../etc/message.xml
     ${CMAKE_SOURCE_DIR}/../scripts/messages/message_template.msg
-    packages-info.txt
+    #packages-info.txt
     )
 	
+if( NOT USESYSTEMLIBS )
+  set( viewer_APPSETTINGS_FILES ${viewer_APPSETTINGS_FILE} packages-info.txt )
+endif()
+
 if (WINDOWS)
   LIST(APPEND viewer_APPSETTINGS_FILES app_settings/growl_notifications.xml)
 endif (WINDOWS)
@@ -2178,11 +2182,11 @@ add_executable(${VIEWER_BINARY_NAME}
     ${viewer_SOURCE_FILES}
     )
 
-if (SDL_FOUND)
+if (SDL_FOUND OR SDL2_FOUND)
   set_property(TARGET ${VIEWER_BINARY_NAME}
     PROPERTY COMPILE_DEFINITIONS LL_SDL=1
     )
-endif (SDL_FOUND)
+endif ()
 
 if (BUGSPLAT_DB)
   set_property(TARGET ${VIEWER_BINARY_NAME}
@@ -2473,7 +2477,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${LLRENDER_LIBRARIES}
     ${FREETYPE_LIBRARIES}
     ${LLUI_LIBRARIES}
-    ${LLVFS_LIBRARIES}
+    ${LLFILESYSTEM_LIBRARIES}
     ${LLWINDOW_LIBRARIES}
     ${LLXML_LIBRARIES}
     ${LLMATH_LIBRARIES}
@@ -2489,7 +2493,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${BOOST_WAVE_LIBRARY} #FS specific
     ${BOOST_THREAD_LIBRARY} #FS specific
     ${BOOST_CONTEXT_LIBRARY}
-    ${DBUSGLIB_LIBRARIES}
+    ${GLIB_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${FMODWRAPPER_LIBRARY} # must come after LLAudio
     ${OPENAL_LIBRARIES}
@@ -2540,10 +2544,10 @@ if (NOT ENABLE_MEDIA_PLUGINS)
   set(COPY_INPUT_DEPENDENCIES
     ${VIEWER_BINARY_NAME}
     linux-crash-logger
-    SLPlugin
-    media_plugin_cef
-    #media_plugin_gstreamer010
-    media_plugin_libvlc
+    #SLPlugin
+    #media_plugin_cef
+    #media_plugin_gstreamer10
+    #media_plugin_libvlc
     llcommon
     )
 else (NOT ENABLE_MEDIA_PLUGINS)
@@ -2552,7 +2556,8 @@ else (NOT ENABLE_MEDIA_PLUGINS)
     linux-crash-logger
     SLPlugin
     media_plugin_cef
-    #media_plugin_gstreamer010
+    media_plugin_gstreamer10
+    #media_plugin_libvlc
     llcommon
     )
 endif (NOT ENABLE_MEDIA_PLUGINS)
@@ -3006,7 +3011,7 @@ if (LL_TESTS)
   set(test_libs
     ${LLMESSAGE_LIBRARIES}
     ${WINDOWS_LIBRARIES}
-    ${LLVFS_LIBRARIES}
+    ${LLFILESYSTEM_LIBRARIES}
     ${LLMATH_LIBRARIES}
     ${LLCOMMON_LIBRARIES}
     ${GOOGLEMOCK_LIBRARIES}
@@ -3021,7 +3026,7 @@ if (LL_TESTS)
 
   set(test_libs
     ${WINDOWS_LIBRARIES}
-    ${LLVFS_LIBRARIES}
+    ${LLFILESYSTEM_LIBRARIES}
     ${LLMATH_LIBRARIES}
     ${LLCOMMON_LIBRARIES}
     ${LLMESSAGE_LIBRARIES}

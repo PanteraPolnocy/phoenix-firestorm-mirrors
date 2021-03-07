@@ -1,8 +1,10 @@
 /** 
- * @file llpidlock.h
- * @brief System information debugging classes.
+ * @file llmediaimplgstreamer.h
+ * @author Tofu Linden
+ * @brief implementation that supports media playback via GStreamer.
  *
- * $LicenseInfo:firstyear=2001&license=viewerlgpl$
+ * @cond
+ * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
  * Copyright (C) 2010, Linden Research, Inc.
  * 
@@ -22,39 +24,30 @@
  * 
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
+ * @endcond
  */
 
-#ifndef LL_PIDLOCK_H
-#define LL_PIDLOCK_H
-#include "llnametable.h"
+// header guard
+#ifndef llmediaimplgstreamer_h
+#define llmediaimplgstreamer_h
 
-class LLSD;
-class LLFrameTimer;
+#if LL_GSTREAMER010_ENABLED
 
-#if !LL_WINDOWS	//For non-windows platforms.
-#include <signal.h>
-#endif
+extern "C" {
+#include <stdio.h>
+#include <gst/gst.h>
 
-namespace LLPidLock
-{
-    void initClass(); // { (void) LLPidLockFile::instance(); }
+#include "apr_pools.h"
+#include "apr_dso.h"
+}
 
-    bool requestLock( LLNameTable<void *> *name_table=NULL, bool autosave=TRUE,
-                     bool force_immediate=FALSE, F32 timeout=300.0);
-    bool checkLock();
-    void releaseLock();
-    bool isClean();
 
-    //getters
-    LLNameTable<void *> * getNameTable();
-    bool getAutosave();
-    bool getClean();
-    std::string getSaveName();
-    S32 getPID();
+extern "C" {
+gboolean llmediaimplgstreamer_bus_callback (GstBus     *bus,
+					    GstMessage *message,
+					    gpointer    data);
+}
 
-    //setters
-    void setClean(bool clean);
-    void setSaveName(std::string savename);
-};
+#endif // LL_GSTREAMER010_ENABLED
 
-#endif // LL_PIDLOCK_H
+#endif // llmediaimplgstreamer_h
