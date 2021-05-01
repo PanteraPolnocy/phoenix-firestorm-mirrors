@@ -166,8 +166,6 @@ FSAreaSearch::FSAreaSearch(const LLSD& key) :
 	mRequestNeedsSent(false),
 	mRlvBehaviorCallbackConnection()
 {
-	mInstance = this;
-
 	mFactoryMap["area_search_list_panel"] = LLCallbackMap(createPanelList, this);
 	mFactoryMap["area_search_find_panel"] = LLCallbackMap(createPanelFind, this);
 	mFactoryMap["area_search_filter_panel"] = LLCallbackMap(createPanelFilter, this);
@@ -193,6 +191,15 @@ FSAreaSearch::~FSAreaSearch()
 		mRlvBehaviorCallbackConnection.disconnect();
 	}
 
+	for (const auto& cb : mNameCacheConnections)
+	{
+		if (cb.second.connected())
+		{
+			cb.second.disconnect();
+		}
+	}
+	mNameCacheConnections.clear();
+
 	if (mParcelChangedObserver)
 	{
 		LLViewerParcelMgr::getInstance()->removeObserver(mParcelChangedObserver);
@@ -204,7 +211,7 @@ FSAreaSearch::~FSAreaSearch()
 BOOL FSAreaSearch::postBuild()
 {
 	mTab = getChild<LLTabContainer>("area_searchtab");
-	
+
 	if (!gSavedSettings.getBOOL("FSAreaSearchAdvanced"))
 	{
 		LLPanel* advanced_tab = mTab->getPanelByName("area_search_advanced_panel");
@@ -227,7 +234,7 @@ void FSAreaSearch::onOpen(const LLSD& key)
 void FSAreaSearch::draw()
 {
 	LLFloater::draw();
-	
+
 	static LLCachedControl<S32> beacon_line_width(gSavedSettings, "DebugBeaconLineWidth");
 	static LLUIColor mBeaconColor = LLUIColorTable::getInstance()->getColor("AreaSearchBeaconColor");
 	static LLUIColor mBeaconTextColor = LLUIColorTable::getInstance()->getColor("PathfindingDefaultBeaconTextColor");
@@ -236,16 +243,13 @@ void FSAreaSearch::draw()
 	{
 		std::vector<LLScrollListItem*> items = mPanelList->getResultList()->getAllData();
 
-		for (std::vector<LLScrollListItem*>::const_iterator item_it = items.begin();
-			item_it != items.end();
-			++item_it)
+		for (const auto item : items)
 		{
-			const LLScrollListItem* item = (*item_it);
 			LLViewerObject* objectp = gObjectList.findObject(item->getUUID());
 
 			if (objectp)
 			{
-				const std::string &objectName = mObjectDetails[item->getUUID()].description;
+				const std::string& objectName = mObjectDetails[item->getUUID()].description;
 				gObjectList.addDebugBeacon(objectp->getPositionAgent(), objectName, mBeaconColor, mBeaconTextColor, beacon_line_width);
 			}
 		}
@@ -310,7 +314,7 @@ void FSAreaSearch::updateRlvRestrictions(ERlvBehaviour behavior)
 
 void FSAreaSearch::checkRegion()
 {
-	if (mInstance && mActive)
+	if (mActive)
 	{
 		// Check if we changed region, and if we did, clear the object details cache.
 		LLViewerRegion* region = gAgent.getRegion(); // getRegion can return NULL if disconnected.
@@ -320,7 +324,7 @@ void FSAreaSearch::checkRegion()
 			{
 				std::vector<LLViewerRegion*> uniqueRegions;
 				region->getNeighboringRegions(uniqueRegions);
-				if(std::find(uniqueRegions.begin(), uniqueRegions.end(), mLastRegion) != uniqueRegions.end())
+				if (std::find(uniqueRegions.begin(), uniqueRegions.end(), mLastRegion) != uniqueRegions.end())
 				{
 					// Crossed into a neighboring region, no need to clear everything.
 					mLastRegion = region;
@@ -354,11 +358,9 @@ void FSAreaSearch::refreshList(bool cache_clear)
 	}
 	else
 	{
-		for (std::map<LLUUID, FSObjectProperties>::iterator object_it = mObjectDetails.begin();
-		object_it != mObjectDetails.end();
-		++object_it)
+		for (auto& object_it : mObjectDetails)
 		{
-			 object_it->second.listed = false;
+			 object_it.second.listed = false;
 		}
 	}
 	mPanelList->getResultList()->deleteAllItems();
@@ -396,13 +398,13 @@ void FSAreaSearch::findObjects()
 
 	for (S32 i = 0; i < object_count; i++)
 	{
-		LLViewerObject *objectp = gObjectList.getObject(i);
-		if (!(objectp && isSearchableObject(objectp, our_region)))
+		LLViewerObject* objectp = gObjectList.getObject(i);
+		if (!objectp || !isSearchableObject(objectp, our_region))
 		{
 			continue;
 		}
 
-		LLUUID object_id = objectp->getID();
+		const LLUUID& object_id = objectp->getID();
 
 		if (object_id.isNull())
 		{
@@ -445,17 +447,15 @@ void FSAreaSearch::findObjects()
 
 	S32 request_count = 0;
 	// requests for non-existent objects will never arrive, check and update the queue.
-	for (std::map<LLUUID, FSObjectProperties>::iterator object_it = mObjectDetails.begin();
-		object_it != mObjectDetails.end();
-		++object_it)
+	for (auto& object_it : mObjectDetails)
 	{
-		if (object_it->second.request == FSObjectProperties::NEED || object_it->second.request == FSObjectProperties::SENT)
+		if (object_it.second.request == FSObjectProperties::NEED || object_it.second.request == FSObjectProperties::SENT)
 		{
-			LLUUID id = object_it->second.id;
+			const LLUUID& id = object_it.second.id;
 			LLViewerObject* objectp = gObjectList.findObject(id);
 			if (!objectp)
 			{
-				object_it->second.request = FSObjectProperties::FAILED;
+				object_it.second.request = FSObjectProperties::FAILED;
 				mRequested--;
 			}
 			else
@@ -546,18 +546,16 @@ void FSAreaSearch::processRequestQueue()
 		LL_DEBUGS("FSAreaSearch") << "Timeout reached, resending requests."<< LL_ENDL;
 		S32 request_count = 0;
 		S32 failed_count = 0;
-		for (std::map<LLUUID, FSObjectProperties>::iterator object_it = mObjectDetails.begin();
-		      object_it != mObjectDetails.end();
-		      ++object_it)
+		for (auto& object_it : mObjectDetails)
 		{
-			if (object_it->second.request == FSObjectProperties::SENT)
+			if (object_it.second.request == FSObjectProperties::SENT)
 			{
-				object_it->second.request = FSObjectProperties::NEED;
+				object_it.second.request = FSObjectProperties::NEED;
 				mRequestNeedsSent = true;
 				request_count++;
 			}
 			
-			if (object_it->second.request == FSObjectProperties::FAILED)
+			if (object_it.second.request == FSObjectProperties::FAILED)
 			{
 				failed_count++;
 			}
@@ -584,28 +582,24 @@ void FSAreaSearch::processRequestQueue()
 	}
 	mRequestNeedsSent = false;
 	
-	for (LLWorld::region_list_t::const_iterator iter = LLWorld::getInstance()->getRegionList().begin();
-		iter != LLWorld::getInstance()->getRegionList().end(); ++iter)
+	for (const auto regionp : LLWorld::getInstance()->getRegionList())
 	{
-		LLViewerRegion* regionp = *iter;
 		U64 region_handle = regionp->getHandle();
 		if (mRegionRequests[region_handle] > (MAX_OBJECTS_PER_PACKET + 128))
 		{
 			mRequestNeedsSent = true;
 			return;
 		}
-		
+
 		std::vector<U32> request_list;
 		bool need_continue = false;
-	
-		for (std::map<LLUUID, FSObjectProperties>::iterator object_it = mObjectDetails.begin();
-			object_it != mObjectDetails.end();
-			++object_it)
+
+		for (auto& object_it : mObjectDetails)
 		{
-			if (object_it->second.request == FSObjectProperties::NEED && object_it->second.region_handle == region_handle)
+			if (object_it.second.request == FSObjectProperties::NEED && object_it.second.region_handle == region_handle)
 			{
-				request_list.push_back(object_it->second.local_id);
-				object_it->second.request = FSObjectProperties::SENT;
+				request_list.push_back(object_it.second.local_id);
+				object_it.second.request = FSObjectProperties::SENT;
 				mRegionRequests[region_handle]++;
 				if (mRegionRequests[region_handle] >= ((MAX_OBJECTS_PER_PACKET * 3) - 3))
 				{
@@ -636,9 +630,8 @@ void FSAreaSearch::requestObjectProperties(const std::vector<U32>& request_list,
 	bool start_new_message = true;
 	S32 select_count = 0;
 	LLMessageSystem* msg = gMessageSystem;
-	
-	for (std::vector<U32>::const_iterator iter = request_list.begin();
-			iter != request_list.end(); ++iter)
+
+	for (const auto& id : request_list)
 	{
 		if (start_new_message)
 		{
@@ -656,12 +649,12 @@ void FSAreaSearch::requestObjectProperties(const std::vector<U32>& request_list,
 			select_count++;
 			start_new_message = false;
 		}
-		
+
 		msg->nextBlockFast(_PREHASH_ObjectData);
-		msg->addU32Fast(_PREHASH_ObjectLocalID, (*iter) );
+		msg->addU32Fast(_PREHASH_ObjectLocalID, id);
 		select_count++;
-		
-		if(msg->isSendFull(NULL) || select_count >= MAX_OBJECTS_PER_PACKET)
+
+		if (msg->isSendFull(NULL) || select_count >= MAX_OBJECTS_PER_PACKET)
 		{
 			LL_DEBUGS("FSAreaSearch") << "Sent one full " << (select ? "ObjectSelect" : "ObjectDeselect") << " message with " << select_count << " object data blocks." << LL_ENDL;
 			msg->sendReliable(regionp->getHost());
@@ -679,8 +672,7 @@ void FSAreaSearch::requestObjectProperties(const std::vector<U32>& request_list,
 
 void FSAreaSearch::processObjectProperties(LLMessageSystem* msg)
 {
-	// This function is called by llviewermessage even if no floater has been created.
-	if (!(mInstance && mActive))
+	if (!mActive)
 	{
 		return;
 	}
@@ -796,21 +788,21 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 	//-----------------------------------------------------------------------
 	// Filters
 	//-----------------------------------------------------------------------
-	
+
 	if (mFilterForSale && !(details.sale_info.isForSale() && (details.sale_info.getSalePrice() >= mFilterForSaleMin && details.sale_info.getSalePrice() <= mFilterForSaleMax)))
 	{
 		return;
 	}
-	
+
 	if (mFilterDistance)
 	{
 		S32 distance = (S32)calculateObjectDistance(mPanelList->getAgentLastPosition(), objectp);// used mAgentLastPosition instead of gAgent->getPositionGlobal for performace
-		if (!(distance >= mFilterDistanceMin && distance <= mFilterDistanceMax))
+		if (distance < mFilterDistanceMin || distance > mFilterDistanceMax)
 		{
 			return;
 		}
 	}
-	
+
 	if (mFilterClickAction)
 	{
 		switch(mFilterClickActionType)
@@ -829,7 +821,7 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 				return;
 			}
 			break;
-	  	default: // all other mouse click action types
+		default: // all other mouse click action types
 			if ((mFilterClickActionType - 2) != objectp->getClickAction())
 			{
 				return;
@@ -837,15 +829,6 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 			break;
 		}
 	}
-	
-	//TODO: texture id search
-// 	for (uuid_vec_t::const_iterator texture_it = details.texture_ids.begin();
-// 			 texture_it != details.texture_ids.end(); ++texture_it)
-// 		{
-// 			if ( "" == (*texture_it).asString())
-// 			{
-// 			}
-// 		}
 
 	if (mFilterPhysical && !objectp->flagUsePhysics())
 	{
@@ -856,36 +839,36 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 	{
 		return;
 	}
-	
+
 	if (mFilterLocked && (details.owner_mask & PERM_MOVE))
 	{
 		return;
 	}
-	
+
 	if (mFilterPhantom && !objectp->flagPhantom())
 	{
 		return;
 	}
-	
+
 	if (mFilterAttachment && !objectp->isAttachment())
 	{
 		return;
 	}
-	
+
 	if (mFilterMoaP)
 	{
 		bool moap = false;
 		U8 texture_count = objectp->getNumTEs();
-		for(U8 i = 0; i < texture_count; i++)
+		for (U8 i = 0; i < texture_count; i++)
 		{
-			if(objectp->getTE(i)->hasMedia())
+			if (objectp->getTE(i)->hasMedia())
 			{
 				moap = true;
 				break;
 			}
 		}
 
-		if(!moap)
+		if (!moap)
 		{
 			return;
 		}
@@ -1098,15 +1081,13 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 	mPanelList->getResultList()->refreshLineHeight();
 }
 
-// <FS:Cron> Allows the object costs to be updated on-the-fly so as to bypass the problem with the data being stale when first accessed.
 void FSAreaSearch::updateObjectCosts(const LLUUID& object_id, F32 object_cost, F32 link_cost, F32 physics_cost, F32 link_physics_cost)
 {
-	// This fuction is called by LLObjectCostResponder::result even if no floater has been created.
-	if (!(mInstance && mActive))
+	if (!mActive)
 	{
 		return;
 	}
-	
+
 	FSScrollListCtrl* result_list = mPanelList->getResultList();
 	if (result_list)
 	{
@@ -1122,20 +1103,23 @@ void FSAreaSearch::updateObjectCosts(const LLUUID& object_id, F32 object_cost, F
 			}
 		}
 	}
-	
 }
 
 void FSAreaSearch::getNameFromUUID(const LLUUID& id, bool needs_rlva_check, std::string& name, bool group, bool& name_requested)
 {
+	static const std::string unknown_name = LLTrans::getString("AvatarNameWaiting");
+
 	if (group)
 	{
 		BOOL is_group;
 		if (!gCacheName->getIfThere(id, name, is_group))
 		{
-			if(std::find(mNamesRequested.begin(), mNamesRequested.end(), id) == mNamesRequested.end())
+			name = unknown_name;
+			if (std::find(mNamesRequested.begin(), mNamesRequested.end(), id) == mNamesRequested.end())
 			{
 				mNamesRequested.push_back(id);
-				gCacheName->get(id, group, boost::bind(&FSAreaSearch::callbackLoadFullName, this, _1, _2));
+				boost::signals2::connection cb_connection = gCacheName->get(id, group, boost::bind(&FSAreaSearch::callbackLoadFullName, this, _1, _2));
+				mNameCacheConnections.insert(std::make_pair(id, cb_connection)); // mNamesRequested will do the dupe check
 			}
 			name_requested = true;
 		}
@@ -1147,7 +1131,7 @@ void FSAreaSearch::getNameFromUUID(const LLUUID& id, bool needs_rlva_check, std:
 		{
 			if (!needs_rlva_check || !gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 			{
-				name = av_name.getUserName();
+				name = av_name.getCompleteName();
 			}
 			else
 			{
@@ -1156,10 +1140,12 @@ void FSAreaSearch::getNameFromUUID(const LLUUID& id, bool needs_rlva_check, std:
 		}
 		else
 		{
+			name = unknown_name;
 			if (std::find(mNamesRequested.begin(), mNamesRequested.end(), id) == mNamesRequested.end())
 			{
 				mNamesRequested.push_back(id);
-				LLAvatarNameCache::get(id, boost::bind(&FSAreaSearch::avatarNameCacheCallback, this, _1, _2, needs_rlva_check));
+				boost::signals2::connection cb_connection = LLAvatarNameCache::get(id, boost::bind(&FSAreaSearch::avatarNameCacheCallback, this, _1, _2, needs_rlva_check));
+				mNameCacheConnections.insert(std::make_pair(id, cb_connection)); // mNamesRequested will do the dupe check
 			}
 			name_requested = true;
 		}
@@ -1171,7 +1157,7 @@ void FSAreaSearch::avatarNameCacheCallback(const LLUUID& id, const LLAvatarName&
 	std::string name;
 	if (!needs_rlva_check || !gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
 	{
-		name = av_name.getUserName();
+		name = av_name.getCompleteName();
 	}
 	else
 	{
@@ -1182,13 +1168,23 @@ void FSAreaSearch::avatarNameCacheCallback(const LLUUID& id, const LLAvatarName&
 
 void FSAreaSearch::callbackLoadFullName(const LLUUID& id, const std::string& full_name)
 {
+	auto iter = mNameCacheConnections.find(id);
+	if (iter != mNameCacheConnections.end())
+	{
+		if (iter->second.connected())
+		{
+			iter->second.disconnect();
+		}
+		mNameCacheConnections.erase(iter);
+	}
+
 	LLViewerRegion* our_region = gAgent.getRegion();
 
 	for (auto& entry : mObjectDetails)
 	{
 		if (entry.second.name_requested && !entry.second.listed)
 		{
-			LLUUID object_id = entry.second.id;
+			const LLUUID& object_id = entry.second.id;
 			LLViewerObject* objectp = gObjectList.findObject(object_id);
 			if (objectp && isSearchableObject(objectp, our_region))
 			{
@@ -1449,9 +1445,13 @@ void FSPanelAreaSearchList::setCounterText(LLStringUtil::format_map_t args)
 
 void FSPanelAreaSearchList::onDoubleClick()
 {
-	LLScrollListItem *item = mResultList->getFirstSelected();
-	if (!item) return;
-	LLUUID object_id = item->getUUID();
+	LLScrollListItem* item = mResultList->getFirstSelected();
+	if (!item)
+	{
+		return;
+	}
+
+	const LLUUID& object_id = item->getUUID();
 	LLViewerObject* objectp = gObjectList.findObject(object_id);
 	if (objectp)
 	{
@@ -1492,15 +1492,12 @@ void FSPanelAreaSearchList::updateScrollList()
 
 	// Iterate over the rows in the list, deleting ones whose object has gone away.
 	std::vector<LLScrollListItem*> items = mResultList->getAllData();
-	for (std::vector<LLScrollListItem*>::iterator item_it = items.begin();
-		item_it != items.end();
-		++item_it)
+	for (const auto item : items)
 	{
-		LLScrollListItem* item = (*item_it);
-		LLUUID row_id = item->getUUID();
+		const LLUUID& row_id = item->getUUID();
 		LLViewerObject* objectp = gObjectList.findObject(row_id);
-		
-		if ((!objectp) || (!mFSAreaSearch->isSearchableObject(objectp, our_region)))
+
+		if (!objectp || !mFSAreaSearch->isSearchableObject(objectp, our_region))
 		{
 			// This item's object has been deleted -- remove the row.
 			// Removing the row won't throw off our iteration, since we have a local copy of the array.
@@ -1535,11 +1532,8 @@ void FSPanelAreaSearchList::updateResultListColumns()
 	mResultList->clearColumns();
 	mResultList->updateLayout();
 
-	std::vector<LLScrollListColumn::Params>::iterator param_it;
-	for (param_it = column_params.begin(); param_it != column_params.end(); ++param_it)
+	for (const auto& p : column_params)
 	{
-		LLScrollListColumn::Params p = *param_it;
-		
 		LLScrollListColumn::Params params;
 		params.header = p.header;
 		params.name = p.name;
@@ -1567,7 +1561,7 @@ void FSPanelAreaSearchList::updateResultListColumns()
 
 void FSPanelAreaSearchList::onColumnVisibilityChecked(const LLSD& userdata)
 {
-	std::string column = userdata.asString();
+	const std::string& column = userdata.asStringRef();
 	U32 column_config = gSavedSettings.getU32("FSAreaSearchColumnConfig");
 
 	U32 new_value;
@@ -1588,13 +1582,13 @@ void FSPanelAreaSearchList::onColumnVisibilityChecked(const LLSD& userdata)
 
 bool FSPanelAreaSearchList::onEnableColumnVisibilityChecked(const LLSD& userdata)
 {
-	std::string column = userdata.asString();
+	const std::string& column = userdata.asStringRef();
 	U32 column_config = gSavedSettings.getU32("FSAreaSearchColumnConfig");
 
 	return (mColumnBits[column] & column_config);
 }
 
-void FSPanelAreaSearchList::updateName(LLUUID id, std::string name)
+void FSPanelAreaSearchList::updateName(const LLUUID& id, const std::string& name)
 {
 	LLScrollListColumn* creator_column = mResultList->getColumn("creator");
 	LLScrollListColumn* owner_column = mResultList->getColumn("owner");
@@ -1604,12 +1598,9 @@ void FSPanelAreaSearchList::updateName(LLUUID id, std::string name)
 	// Iterate over the rows in the list, updating the ones with matching id.
 	std::vector<LLScrollListItem*> items = mResultList->getAllData();
 
-	for (std::vector<LLScrollListItem*>::iterator item_it = items.begin();
-		item_it != items.end();
-		++item_it)
+	for (const auto item : items)
 	{
-		LLScrollListItem* item = (*item_it);
-		LLUUID row_id = item->getUUID();
+		const LLUUID& row_id = item->getUUID();
 		FSObjectProperties& details = mFSAreaSearch->mObjectDetails[row_id];
 
 		if (creator_column && (id == details.creator_id))
@@ -1644,7 +1635,7 @@ void FSPanelAreaSearchList::updateName(LLUUID id, std::string name)
 
 bool FSPanelAreaSearchList::onContextMenuItemEnable(const LLSD& userdata)
 {
-	std::string parameter = userdata.asString();
+	const std::string& parameter = userdata.asStringRef();
 	if (parameter == "one")
 	{
 		// return true if just one item is selected.
@@ -1655,7 +1646,7 @@ bool FSPanelAreaSearchList::onContextMenuItemEnable(const LLSD& userdata)
 		// return true if the object is within the draw distance.
 		if (mResultList->getNumSelected() == 1)
 		{
-			LLUUID object_id = mResultList->getFirstSelected()->getUUID();
+			const LLUUID& object_id = mResultList->getFirstSelected()->getUUID();
 			LLViewerObject* objectp = gObjectList.findObject(object_id);
 			return (objectp && calculateObjectDistance(gAgent.getPositionGlobal(), objectp) < gAgentCamera.mDrawDistance);
 		}
@@ -1677,7 +1668,7 @@ bool FSPanelAreaSearchList::onContextMenuItemEnable(const LLSD& userdata)
 
 bool FSPanelAreaSearchList::onContextMenuItemClick(const LLSD& userdata)
 {
-	std::string action = userdata.asString();
+	const std::string& action = userdata.asStringRef();
 	LL_DEBUGS("FSAreaSearch") << "Right click menu " << action << " was selected." << LL_ENDL;
 
 	if (action == "select_all")
@@ -1710,23 +1701,22 @@ bool FSPanelAreaSearchList::onContextMenuItemClick(const LLSD& userdata)
 		std::vector<LLScrollListItem*> selected = mResultList->getAllSelected();
 		S32 cnt = 0;
 
-		for(std::vector<LLScrollListItem*>::iterator item_it = selected.begin();
-		  item_it != selected.end(); ++item_it)
+		for (const auto item : selected)
 		{
 			switch (c)
 			{
 			case 't': // touch
 			{
-				new FSAreaSearchTouchTimer((*item_it)->getUUID(), cnt * 0.2f);
+				new FSAreaSearchTouchTimer(item->getUUID(), cnt * 0.2f);
 				cnt++;
 			}
 				break;
 			case 's': // script
-				FSLSLBridge::instance().viewerToLSL("getScriptInfo|" + (*item_it)->getUUID().asString() + "|" + (gSavedSettings.getBOOL("FSScriptInfoExtended") ? "1" : "0"));
+				FSLSLBridge::instance().viewerToLSL("getScriptInfo|" + item->getUUID().asString() + "|" + (gSavedSettings.getBOOL("FSScriptInfoExtended") ? "1" : "0"));
 				break;
 			case 'l': // blacklist
 			{
-				LLUUID object_id = (*item_it)->getUUID();
+				const LLUUID& object_id = item->getUUID();
 				LLViewerObject* objectp = gObjectList.findObject(object_id);
 //				if (objectp)
 // [RLVa:KB] - Checked: RLVa-2.0.0 | FS-specific
@@ -1774,7 +1764,7 @@ bool FSPanelAreaSearchList::onContextMenuItemClick(const LLSD& userdata)
 	{
 		if (mResultList->getNumSelected() == 1)
 		{
-			LLUUID object_id = mResultList->getFirstSelected()->getUUID();
+			const LLUUID& object_id = mResultList->getFirstSelected()->getUUID();
 			LLViewerObject* objectp = gObjectList.findObject(object_id);
 			if (objectp)
 			{
@@ -1916,23 +1906,26 @@ bool FSPanelAreaSearchList::onContextMenuItemClick(const LLSD& userdata)
 		LLSelectMgr::getInstance()->deselectAll();
 		std::vector<LLScrollListItem*> selected = mResultList->getAllSelected();
 
-		for(std::vector<LLScrollListItem*>::iterator item_it = selected.begin();
-		  item_it != selected.end(); ++item_it)
+		for (const auto item : selected)
 		{
-			LLUUID object_id = (*item_it)->getUUID();
+			const LLUUID& object_id = item->getUUID();
 			LLViewerObject* objectp = gObjectList.findObject(object_id);
 			if (objectp)
 			{
 				LLSelectMgr::getInstance()->selectObjectAndFamily(objectp);
-				if ( c == 'r' )
+				if (c == 'r')
 				{
 					// need to set permissions for object return
 					LLSelectNode* node = LLSelectMgr::getInstance()->getSelection()->findNode(objectp);
-					if( !node )
+					if (!node)
+					{
 						break;
+					}
 
-					if( !mFSAreaSearch || mFSAreaSearch->mObjectDetails.end() == mFSAreaSearch->mObjectDetails.find(object_id ) )
+					if (!mFSAreaSearch || mFSAreaSearch->mObjectDetails.end() == mFSAreaSearch->mObjectDetails.find(object_id))
+					{
 						break;
+					}
 
 					FSObjectProperties& details = mFSAreaSearch->mObjectDetails[object_id];
 					node->mValid = TRUE;
@@ -2301,7 +2294,7 @@ FSPanelAreaSearchOptions::~FSPanelAreaSearchOptions()
 
 void FSPanelAreaSearchOptions::onCommitCheckboxDisplayColumn(const LLSD& userdata)
 {
-	std::string column_name = userdata.asString();
+	const std::string& column_name = userdata.asStringRef();
 	if (column_name.empty())
 	{
 		LL_WARNS("FSAreaSearch") << "Missing action text." << LL_ENDL;
