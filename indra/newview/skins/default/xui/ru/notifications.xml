@@ -636,9 +636,11 @@
 	<notification name="UnsupportedHardware">
 		К вашему сведению: ваш компьютер не соответствует минимальным системным требованиям [APP_NAME]. Это может привести к снижению производительности. К сожалению, [SUPPORT_SITE] не оказывает техническую поддержку для неподдерживаемых конфигураций систем.
 
+[MINSPECS]
+
 Найти более подробную информацию на [_URL]?
 		<url name="url">
-			http://www.secondlife.com/corporate/sysreqs.php
+			https://wiki.firestormviewer.org/fs_system_requirements
 		</url>
 		<usetemplate ignoretext="Оборудование моего компьютера не поддерживается" name="okcancelignore" notext="Нет" yestext="Да"/>
 	</notification>
@@ -1633,14 +1635,20 @@
 	</notification>
 	<notification name="PauseForUpdate">
 		Для входа необходима версия [VERSION].
+Примечания к выпуску: [URL]
+
 Нажмите OK для загрузки и установки.
 	</notification>
 	<notification name="OptionalUpdateReady">
 		Версия [VERSION] загружена и готова к установке.
+Примечания к выпуску: [URL]
+
 Нажмите OK для установки.
 	</notification>
 	<notification name="PromptOptionalUpdate">
 		Версия [VERSION] загружена и готова к установке.
+Примечания к выпуску: [URL]
+
 Продолжить?
 		<usetemplate canceltext="Не сейчас" name="yesnocancelbuttons" notext="Пропустить" yestext="Установить"/>
 	</notification>
@@ -3933,6 +3941,9 @@ URL: [AUDIOURL]
 	</global>
 	<global name="UnsupportedGPU">
 		- Графическая карта вашего компьютера не удовлетворяет минимальным требованиям.
+	</global>
+	<global name="UnsupportedCPU">
+		- Процессор вашего компьютера не удовлетворяет минимальным требованиям.
 	</global>
 	<global name="UnsupportedRAM">
 		- Системная память вашего компьютера не удовлетворяет минимальным требованиям.
