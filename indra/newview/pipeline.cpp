@@ -829,19 +829,24 @@ void LLPipeline::resizeScreenTexture()
 		GLuint resY = gViewerWindow->getWorldViewHeightRaw();
 	
 // [SL:KB] - Patch: Settings-RenderResolutionMultiplier | Checked: Catznip-5.4
+		GLuint scaledResX = resX;
+		GLuint scaledResY = resY;
 		if ( (RenderResolutionDivisor > 1) && (RenderResolutionDivisor < resX) && (RenderResolutionDivisor < resY) )
 		{
-			resX /= RenderResolutionDivisor;
-			resY /= RenderResolutionDivisor;
+			scaledResX /= RenderResolutionDivisor;
+			scaledResY /= RenderResolutionDivisor;
 		}
 		else if (RenderResolutionMultiplier > 0.f && RenderResolutionMultiplier < 1.f)
 		{
-			resX *= RenderResolutionMultiplier;
-			resY *= RenderResolutionMultiplier;
+			scaledResX *= RenderResolutionMultiplier;
+			scaledResY *= RenderResolutionMultiplier;
 		}
 // [/SL:KB]
 
-		if (gResizeScreenTexture || (resX != mScreen.getWidth()) || (resY != mScreen.getHeight()))
+//		if (gResizeScreenTexture || (resX != mScreen.getWidth()) || (resY != mScreen.getHeight()))
+// [SL:KB] - Patch: Settings-RenderResolutionMultiplier | Checked: Catznip-5.4
+		if (gResizeScreenTexture || (scaledResX != mScreen.getWidth()) || (scaledResY != mScreen.getHeight()))
+// [/SL:KB]
 		{
 			releaseScreenBuffers();
             releaseShadowTargets();
@@ -3997,7 +4002,7 @@ void LLPipeline::postSort(LLCamera& camera)
 	LL_PUSH_CALLSTACKS();
 	//rebuild drawable geometry
 	{
-		FSZoneN("PostSort: rebuildGeom")
+		FSZoneN("PostSort: rebuildGeom");
 	for (LLCullResult::sg_iterator i = sCull->beginDrawableGroups(); i != sCull->endDrawableGroups(); ++i)
 	{
 		LLSpatialGroup* group = *i;
@@ -4116,11 +4121,12 @@ void LLPipeline::postSort(LLCamera& camera)
 		glBeginQueryARB(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, mMeshDirtyQueryObject);
 	}*/
 	{
-		FSZoneN("rebuild delayed upd groups")	}
+		FSZoneN("rebuild delayed upd groups");
 	//pack vertex buffers for groups that chose to delay their updates
 	for (LLSpatialGroup::sg_vector_t::iterator iter = mMeshDirtyGroup.begin(); iter != mMeshDirtyGroup.end(); ++iter)
 	{
 		(*iter)->rebuildMesh();
+	}
 	}
 	}
 
@@ -4132,7 +4138,7 @@ void LLPipeline::postSort(LLCamera& camera)
 	mMeshDirtyGroup.clear();
 
 	{
-		FSZoneN("sort alpha groups")
+		FSZoneN("sort alpha groups");
 	if (!sShadowRender)
 	{
 		std::sort(sCull->beginAlphaGroups(), sCull->endAlphaGroups(), LLSpatialGroup::CompareDepthGreater());

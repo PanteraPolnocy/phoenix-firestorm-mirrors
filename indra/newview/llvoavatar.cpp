@@ -4232,7 +4232,14 @@ bool LLVOAvatar::isVisuallyMuted()
 	// * check against the render cost and attachment limits
 	if (!isSelf())
 	{
-		if (mVisuallyMuteSetting == AV_ALWAYS_RENDER)
+// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
+		if (isRlvSilhouette())
+		{
+			muted = true;
+		}
+		else if (mVisuallyMuteSetting == AV_ALWAYS_RENDER)
+// [/RLVa:KB]
+//		if (mVisuallyMuteSetting == AV_ALWAYS_RENDER)
 		{
 			muted = false;
 		}
@@ -4251,12 +4258,6 @@ bool LLVOAvatar::isVisuallyMuted()
         //    muted = true;
         //}
 		// </FS:Ansariel>
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
-		else if (isRlvSilhouette())
-		{
-			muted = true;
-		}
-// [/RLVa:KB]
 		else 
 		{
 			muted = isTooComplex();
@@ -4287,9 +4288,9 @@ bool LLVOAvatar::isInMuteList() const
 }
 
 // [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
-bool LLVOAvatar::isRlvSilhouette()
+bool LLVOAvatar::isRlvSilhouette() const
 {
-	if (!gRlvHandler.hasBehaviour(RLV_BHVR_SETCAM_AVDIST))
+	if (!RlvActions::hasBehaviour(RLV_BHVR_SETCAM_AVDIST))
 		return false;
 
 	static RlvCachedBehaviourModifier<float> s_nSetCamAvDist(RLV_MODIFIER_SETCAM_AVDIST);
@@ -4297,14 +4298,14 @@ bool LLVOAvatar::isRlvSilhouette()
 	const F64 now = LLFrameTimer::getTotalSeconds();
 	if (now >= mCachedRlvSilhouetteUpdateTime)
 	{
-		const F64 SECONDS_BETWEEN_NEARBY_UPDATES = .5f;
+		const F64 SECONDS_BETWEEN_SILHOUETTE_UPDATES = .5f;
 		bool fIsRlvSilhouette = dist_vec_squared(gAgent.getPositionGlobal(), getPositionGlobal()) > s_nSetCamAvDist() * s_nSetCamAvDist();
 		if (fIsRlvSilhouette != mCachedIsRlvSilhouette)
 		{
 			mCachedIsRlvSilhouette = fIsRlvSilhouette;
 			mNeedsImpostorUpdate = TRUE;
 		}
-		mCachedRlvSilhouetteUpdateTime = now + SECONDS_BETWEEN_NEARBY_UPDATES;
+		mCachedRlvSilhouetteUpdateTime = now + SECONDS_BETWEEN_SILHOUETTE_UPDATES;
 	}
 	return mCachedIsRlvSilhouette;
 }
@@ -10025,7 +10026,7 @@ void dump_visual_param(LLAPRFile::tFiletype* file, LLVisualParam* viewer_param, 
 	S32 u8_value = F32_to_U8(value,viewer_param->getMinWeight(),viewer_param->getMaxWeight());
 	apr_file_printf(file, "\t\t<param id=\"%d\" name=\"%s\" display=\"%s\" value=\"%.3f\" u8=\"%d\" type=\"%s\" wearable=\"%s\" group=\"%d\"/>\n",
 					viewer_param->getID(), viewer_param->getName().c_str(), viewer_param->getDisplayName().c_str(), value, u8_value, type_string.c_str(),
-					LLWearableType::getTypeName(LLWearableType::EType(wtype)).c_str(),
+					LLWearableType::getInstance()->getTypeName(LLWearableType::EType(wtype)).c_str(),
 					viewer_param->getGroup());
 	}
 	
@@ -10364,13 +10365,13 @@ void LLVOAvatar::applyParsedAppearanceMessage(LLAppearanceMessageContents& conte
 	{
 		//Wolfspirit: Read the UUID, system and Texturecolor
 		const LLTEContents& tec = contents.mTEContents;
-		const LLUUID tag_uuid = ((LLUUID*)tec.image_data)[TEX_HEAD_BODYPAINT];
+		const LLUUID tag_uuid = tec.image_data[TEX_HEAD_BODYPAINT];
 		bool new_system = (tec.glow[TEX_HEAD_BODYPAINT]);
 
 		//WS: Write them into an LLSD map
 		mClientTagData["uuid"] = tag_uuid.asString();
 		mClientTagData["id_based"] = new_system;
-		mClientTagData["tex_color"] = LLColor4U(tec.colors).getValue();
+		mClientTagData["tex_color"] = tec.colors[TEX_HEAD_BODYPAINT].getValue();
 
 		//WS: Clear mNameString to force a rebuild
 		mNameIsSet = false;
@@ -10888,6 +10889,7 @@ void LLVOAvatar::dumpArchetypeXMLCallback(const std::vector<std::string>& filena
 {
 // </FS:CR>
 	LLAPRFile outfile;
+    LLWearableType *wr_inst = LLWearableType::getInstance();
 // <FS:CR> FIRE-8893 - Dump archetype xml to user defined location
 	//std::string fullpath = gDirUtilp->getExpandedFilename(LL_PATH_LOGS,outfilename);
 	std::string fullpath = filenames[0];
@@ -10911,7 +10913,7 @@ void LLVOAvatar::dumpArchetypeXMLCallback(const std::vector<std::string>& filena
 		{
 			for (S32 type = LLWearableType::WT_SHAPE; type < LLWearableType::WT_COUNT; type++)
 			{
-				const std::string& wearable_name = LLWearableType::getTypeName((LLWearableType::EType)type);
+				const std::string& wearable_name = wr_inst->getTypeName((LLWearableType::EType)type);
 				apr_file_printf( file, "\n\t\t<!-- wearable: %s -->\n", wearable_name.c_str() );
 
 				for (LLVisualParam* param = getFirstVisualParam(); param; param = getNextVisualParam())
@@ -12252,23 +12254,19 @@ void LLVOAvatar::calcMutedAVColor()
     std::string change_msg;
     LLUUID av_id(getID());
 
-    if (getVisualMuteSettings() == AV_DO_NOT_RENDER)
+// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
+	if (isRlvSilhouette())
+	{
+		new_color = LLColor4::silhouette;
+		change_msg = " not rendered: color is silhouette";
+	}
+    else if (getVisualMuteSettings() == AV_DO_NOT_RENDER)
+// [/RLVa:KB]
+//    if (getVisualMuteSettings() == AV_DO_NOT_RENDER)
     {
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
-		 if (isRlvSilhouette())
-		 {
-			 new_color = LLColor4::silhouette;
-			 change_msg = " not rendered: color is silhouette";
-		 }
-		 else
-		 {
-// [/RLVa:KB]
-			// explicitly not-rendered avatars are light grey
-			 new_color = LLColor4::grey4;
-			 change_msg = " not rendered: color is grey4";
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
-		 }
-// [/RLVa:KB]
+        // explicitly not-rendered avatars are light grey
+        new_color = LLColor4::grey4;
+        change_msg = " not rendered: color is grey4";
     }
     else if (LLMuteList::getInstance()->isMuted(av_id)) // the user blocked them
     {
@@ -12282,14 +12280,8 @@ void LLVOAvatar::calcMutedAVColor()
         change_msg = " simple imposter ";
     }
 #ifdef COLORIZE_JELLYDOLLS
-//    else if ( mMutedAVColor == LLColor4::white || mMutedAVColor == LLColor4::grey3 || mMutedAVColor == LLColor4::grey4 )
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
-    else if ( mMutedAVColor == LLColor4::white || mMutedAVColor == LLColor4::grey3 || mMutedAVColor == LLColor4::grey4 || mMutedAVColor == LLColor4::silhouette)
-#else
-    else if (mMutedAVColor == LLColor4::silhouette)
-#endif
-// [/RLVa:KB]
-   {
+    else if ( mMutedAVColor == LLColor4::white || mMutedAVColor == LLColor4::grey3 || mMutedAVColor == LLColor4::grey4 )
+	{
         // select a color based on the first byte of the agents uuid so any muted agent is always the same color
         F32 color_value = (F32) (av_id.mData[0]);
         F32 spectrum = (color_value / 256.0);          // spectrum is between 0 and 1.f
@@ -12308,8 +12300,7 @@ void LLVOAvatar::calcMutedAVColor()
 		new_color.normalize();
         new_color *= 0.28f;            // Tone it down
 	}
-// <FS:Ansariel> RLVa fix
-//#endif
+#endif
     else
     {
 		new_color = LLColor4::grey4;

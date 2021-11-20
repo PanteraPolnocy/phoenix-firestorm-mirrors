@@ -423,26 +423,36 @@ LLMenuParcelObserver::~LLMenuParcelObserver()
 void LLMenuParcelObserver::changed()
 {
 	LLParcel *parcel = LLViewerParcelMgr::getInstance()->getParcelSelection()->getParcel();
-	// <FS:Ansariel> FIRE-4454: Cache controls because of performance reasons
-	//gMenuHolder->childSetEnabled("Land Buy Pass", LLPanelLandGeneral::enableBuyPass(NULL) && !(parcel->getOwnerID()== gAgent.getID()));
-	//
-	//BOOL buyable = enable_buy_land(NULL);
-	//gMenuHolder->childSetEnabled("Land Buy", buyable);
-	//gMenuHolder->childSetEnabled("Buy Land...", buyable);
+    if (gMenuLand && parcel)
+    {
+        // <FS:Ansariel> FIRE-4454: Cache controls because of performance reasons
+        //LLView* child = gMenuLand->findChild<LLView>("Land Buy Pass");
+        //if (child)
+        //{
+        //    child->setEnabled(LLPanelLandGeneral::enableBuyPass(NULL) && !(parcel->getOwnerID() == gAgent.getID()));
+        //}
+        //
+        //child = gMenuLand->findChild<LLView>("Land Buy");
+        //if (child)
+        //{
+        //    BOOL buyable = enable_buy_land(NULL);
+        //    child->setEnabled(buyable);
+        //}
 
-	static LLView* land_buy_pass = gMenuHolder->getChildView("Land Buy Pass");
-	static LLView* land_buy_pass_pie = gMenuHolder->getChildView("Land Buy Pass Pie");
-	static LLView* land_buy = gMenuHolder->getChildView("Land Buy");
-	static LLView* land_buy_pie = gMenuHolder->getChildView("Land Buy Pie");
+        static LLView* land_buy_pass = gMenuHolder->getChildView("Land Buy Pass");
+        static LLView* land_buy_pass_pie = gMenuHolder->getChildView("Land Buy Pass Pie");
+        static LLView* land_buy = gMenuHolder->getChildView("Land Buy");
+        static LLView* land_buy_pie = gMenuHolder->getChildView("Land Buy Pie");
 
-	BOOL pass_buyable = LLPanelLandGeneral::enableBuyPass(NULL) && parcel->getOwnerID() != gAgentID;
-	land_buy_pass->setEnabled(pass_buyable);
-	land_buy_pass_pie->setEnabled(pass_buyable);
+        BOOL pass_buyable = LLPanelLandGeneral::enableBuyPass(NULL) && parcel->getOwnerID() != gAgentID;
+        land_buy_pass->setEnabled(pass_buyable);
+        land_buy_pass_pie->setEnabled(pass_buyable);
 
-	BOOL buyable = enable_buy_land(NULL);
-	land_buy->setEnabled(buyable);
-	land_buy_pie->setEnabled(buyable);
-	// </FS:Ansariel> FIRE-4454: Cache controls because of performance reasons
+        BOOL buyable = enable_buy_land(NULL);
+        land_buy->setEnabled(buyable);
+        land_buy_pie->setEnabled(buyable);
+        // </FS:Ansariel> FIRE-4454: Cache controls because of performance reasons
+    }
 }
 
 
@@ -3854,19 +3864,13 @@ bool check_avatar_render_mode(U32 mode)
 	switch (mode) 
 	{
 		case 0:
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
 				return FSAvatarRenderPersistence::instance().getAvatarRenderSettings(avatar->getID()) == LLVOAvatar::AV_RENDER_NORMALLY;
-// [/RLVa:KB]
 //				return (avatar->getVisualMuteSettings() == LLVOAvatar::AV_RENDER_NORMALLY);
 		case 1:
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
 				return FSAvatarRenderPersistence::instance().getAvatarRenderSettings(avatar->getID()) == LLVOAvatar::AV_DO_NOT_RENDER;
-// [/RLVa:KB]
 //				return (avatar->getVisualMuteSettings() == LLVOAvatar::AV_DO_NOT_RENDER);
 		case 2:
-// [RLVa:KB] - Checked: RLVa-2.2 (@setcam_avdist)
 				return FSAvatarRenderPersistence::instance().getAvatarRenderSettings(avatar->getID()) == LLVOAvatar::AV_ALWAYS_RENDER;
-// [/RLVa:KB]
 //				return (avatar->getVisualMuteSettings() == LLVOAvatar::AV_ALWAYS_RENDER);
 		case 4:
 				return FSAvatarRenderPersistence::instance().getAvatarRenderSettings(avatar->getID()) != LLVOAvatar::AV_RENDER_NORMALLY;
@@ -9034,7 +9038,7 @@ namespace
 	};
 }
 
-void queue_actions(LLFloaterScriptQueue* q, const std::string& msg)
+bool queue_actions(LLFloaterScriptQueue* q, const std::string& msg)
 {
 	QueueObjects func(q);
 	LLSelectMgr *mgr = LLSelectMgr::getInstance();
@@ -9056,6 +9060,7 @@ void queue_actions(LLFloaterScriptQueue* q, const std::string& msg)
 		{
 			LL_ERRS() << "Bad logic." << LL_ENDL;
 		}
+		q->closeFloater();
 	}
 	else
 	{
@@ -9064,6 +9069,7 @@ void queue_actions(LLFloaterScriptQueue* q, const std::string& msg)
 			LL_WARNS() << "Unexpected script compile failure." << LL_ENDL;
 		}
 	}
+	return !fail;
 }
 
 class LLToolsSelectedScriptAction : public view_listener_t
@@ -9112,8 +9118,10 @@ class LLToolsSelectedScriptAction : public view_listener_t
 		//if (queue)
 		//{
 		//	queue->setMono(mono);
-		//	queue_actions(queue, msg);
-		//	queue->setTitle(title);
+		//	if (queue_actions(queue, msg))
+		//	{
+		//		queue->setTitle(title);
+		//	}
 		//}
 		//else
 		//{
@@ -9187,8 +9195,10 @@ void handle_selected_script_action(const std::string& action)
 	if (queue)
 	{
 		queue->setMono(mono);
-		queue_actions(queue, msg);
-		queue->setTitle(title);
+		if (queue_actions(queue, msg))
+		{
+			queue->setTitle(title);
+		}
 	}
 	else
 	{
@@ -10858,7 +10868,7 @@ class LLEditEnableTakeOff : public view_listener_t
 	bool handleEvent(const LLSD& userdata)
 	{
 		std::string clothing = userdata.asString();
-		LLWearableType::EType type = LLWearableType::typeNameToType(clothing);
+		LLWearableType::EType type = LLWearableType::getInstance()->typeNameToType(clothing);
 //		if (type >= LLWearableType::WT_SHAPE && type < LLWearableType::WT_COUNT)
 // [RLVa:KB] - Checked: 2010-03-20 (RLVa-1.2.0c) | Modified: RLVa-1.2.0a
 		// NOTE: see below - enable if there is at least one wearable on this type that can be removed
@@ -10892,7 +10902,7 @@ class LLEditTakeOff : public view_listener_t
 			LLAppearanceMgr::instance().removeAllClothesFromAvatar();
 		else
 		{
-			LLWearableType::EType type = LLWearableType::typeNameToType(clothing);
+			LLWearableType::EType type = LLWearableType::getInstance()->typeNameToType(clothing);
 			if (type >= LLWearableType::WT_SHAPE 
 				&& type < LLWearableType::WT_COUNT
 				&& (gAgentWearables.getWearableCount(type) > 0))

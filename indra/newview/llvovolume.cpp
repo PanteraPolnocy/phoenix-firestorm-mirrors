@@ -398,6 +398,18 @@ U32 LLVOVolume::processUpdateMessage(LLMessageSystem *mesgsys,
 				{
 					delete mTextureAnimp;
 					mTextureAnimp = NULL;
+
+                    for (S32 i = 0; i < getNumTEs(); i++)
+                    {
+                        LLFace* facep = mDrawable->getFace(i);
+                        if (facep && facep->mTextureMatrix)
+                        {
+                            // delete or reset
+                            delete facep->mTextureMatrix;
+                            facep->mTextureMatrix = NULL;
+                        }
+                    }
+
 					gPipeline.markTextured(mDrawable);
 					mFaceMappingChanged = TRUE;
 					mTexAnimMode = 0;
@@ -594,6 +606,18 @@ U32 LLVOVolume::processUpdateMessage(LLMessageSystem *mesgsys,
 			{
 				delete mTextureAnimp;
 				mTextureAnimp = NULL;
+
+                for (S32 i = 0; i < getNumTEs(); i++)
+                {
+                    LLFace* facep = mDrawable->getFace(i);
+                    if (facep && facep->mTextureMatrix)
+                    {
+                        // delete or reset
+                        delete facep->mTextureMatrix;
+                        facep->mTextureMatrix = NULL;
+                    }
+                }
+
 				gPipeline.markTextured(mDrawable);
 				mFaceMappingChanged = TRUE;
 				mTexAnimMode = 0;
@@ -6391,7 +6415,7 @@ void LLVolumeGeometryManager::rebuildMesh(LLSpatialGroup* group)
 
 			if (drawablep && !drawablep->isDead() && drawablep->isState(LLDrawable::REBUILD_ALL) && !drawablep->isState(LLDrawable::RIGGED) )
 			{
-				FSZoneN("Rebuild all non-Rigged")
+				FSZoneN("Rebuild all non-Rigged");
 				LLVOVolume* vobj = drawablep->getVOVolume();
 				// <FS:Beq> capture render times
 				if( vobj && vobj->isAttachment() )
