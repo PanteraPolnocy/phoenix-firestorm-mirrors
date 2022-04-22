@@ -3461,17 +3461,6 @@ bool LLAppViewer::initConfiguration()
 	gLastRunVersion = gSavedSettings.getString("LastRunVersion");
 
 	loadColorSettings();
-    
-    //<FS:KC> One time fix for Latency
-    if ((gLastRunVersion != LLVersionInfo::getInstance()->getChannelAndVersion()) && (gSavedSettings.getString("SkinCurrent") == "latency") && !gSavedSettings.getBOOL("FSLatencyOneTimeFixRun"))
-    {
-        LL_INFOS() << "FSLatencyOneTimeFix: Fixing script dialog colors." << LL_ENDL;
-        // Replace previously saved script dialog colors with new defaults, which happen to be the same as the group notice colors
-        LLUIColorTable::instance().setColor("ScriptDialog", LLUIColorTable::instance().getColor("GroupNotifyDialogBG", LLColor4::grey4));
-        LLUIColorTable::instance().setColor("ScriptDialogFg", LLUIColorTable::instance().getColor("GroupNotifyTextColor", LLColor4::white));
-    }
-    gSavedSettings.setBOOL("FSLatencyOneTimeFixRun", TRUE);
-    //</FS:KC>
 
 	// Let anyone else who cares know that we've populated our settings
 	// variables.
@@ -6286,14 +6275,18 @@ void LLAppViewer::disconnectViewer()
 	}
 
 	// save inventory if appropriate
-	gInventory.cache(gInventory.getRootFolderID(), gAgent.getID());
-	if (gInventory.getLibraryRootFolderID().notNull()
-		&& gInventory.getLibraryOwnerID().notNull())
-	{
-		gInventory.cache(
-			gInventory.getLibraryRootFolderID(),
-			gInventory.getLibraryOwnerID());
-	}
+    if (gInventory.isInventoryUsable()
+        && gAgent.getID().notNull()) // Shouldn't be null at this stage
+    {
+        gInventory.cache(gInventory.getRootFolderID(), gAgent.getID());
+        if (gInventory.getLibraryRootFolderID().notNull()
+            && gInventory.getLibraryOwnerID().notNull())
+        {
+            gInventory.cache(
+                gInventory.getLibraryRootFolderID(),
+                gInventory.getLibraryOwnerID());
+        }
+    }
 
 	LLAvatarNameCache::instance().setCustomNameCheckCallback(LLAvatarNameCache::custom_name_check_callback_t()); // <FS:Ansariel> Contact sets
 	saveNameCache();
