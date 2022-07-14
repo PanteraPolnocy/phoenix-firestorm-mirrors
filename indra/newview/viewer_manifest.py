@@ -1755,14 +1755,30 @@ class DarwinManifest(ViewerManifest):
                     #       'viewer.keychain'
                     viewer_keychain = os.path.join(home_path, 'Library',
                                                    'Keychains', 'viewer.keychain')
+                    if not os.path.isfile( viewer_keychain ):
+                        viewer_keychain += "-db"
+
+                    if not os.path.isfile( viewer_keychain ):
+                        raise "No keychain named viewer found"
+                    
                     self.run_command(['security', 'unlock-keychain',
                                       '-p', keychain_pwd, viewer_keychain])
                     sign_retry_wait=15
                     resources = app_in_dmg + "/Contents/Resources/"
                     plain_sign = glob.glob(resources + "llplugin/*.dylib")
+
+                    # <FS:ND> Even though we got some dylibs in Resources signed by LL, we also got some there that are *NOT*
+                    # At least: fmod, growl, GLOD
+                    # We could selectively sign those, or repackage them and then sign them. For an easy clean sweet we just resign them al
+                    plain_sign += glob.glob(resources + "*.dylib")
+                    plain_sign += glob.glob(resources + "llplugin/lib/*.dylib")
+                    plain_sign += glob.glob( app_in_dmg + "/Contents/Frameworks/Chromium Embedded Framework.framework/Libraries/*.dylib" )
+
                     deep_sign = [
-                        resources + "updater/SLVersionChecker",
+                        # <FS:ND> Firestorm does not ship SLVersionChecker
+                        #resources + "updater/SLVersionChecker",
                         resources + "SLPlugin.app/Contents/MacOS/SLPlugin",
+                        resources + "SLVoice",
                         app_in_dmg,
                         ]
                     for attempt in range(3):
@@ -1800,7 +1816,9 @@ class DarwinManifest(ViewerManifest):
                     else:
                         print("Maximum codesign attempts exceeded; giving up", file=sys.stderr)
                         raise sign_failed
-                    self.run_command(['spctl', '-a', '-texec', '-vvvv', app_in_dmg])
+                    # <FS:ND> This fails sometimes and works other times. Even when notarization (down below) is a success
+                    # Remove it for now and investigate after we did notarize  a few times
+                    #self.run_command(['spctl', '-a', '-texec', '-vvvv', app_in_dmg])
                     self.run_command([self.src_path_of("installers/darwin/apple-notarize.sh"), app_in_dmg])
 
         finally:

@@ -9681,6 +9681,7 @@ void setDoubleClickAction(const std::string& control)
 
 		bool ignore_mask = true;
 		conflictHandler.registerControl(control, index, click, key, mask, ignore_mask);
+		report_to_nearby_chat(LLTrans::getString("DoubleClickTeleportEnabled"));
 	}
 	else
 	{
@@ -9691,6 +9692,7 @@ void setDoubleClickAction(const std::string& control)
 			if (data.mMouse == click && data.mKey == key && data.mMask == mask)
 			{
 				conflictHandler.clearControl(control, i);
+				report_to_nearby_chat(LLTrans::getString("DoubleClickTeleportDisabled"));
 			}
 		}
 	}
@@ -9698,7 +9700,7 @@ void setDoubleClickAction(const std::string& control)
 	conflictHandler.saveToSettings();
 }
 
-bool isDoubleClickActionEnabled(const std::string control)
+bool isDoubleClickActionEnabled(const std::string& control)
 {
 	constexpr LLKeyConflictHandler::ESourceMode mode{ LLKeyConflictHandler::MODE_THIRD_PERSON };
 	constexpr EMouseClickType click{ EMouseClickType::CLICK_DOUBLELEFT };
@@ -10229,9 +10231,9 @@ bool isGridFeatureEnabled(const LLSD& userdata)
 // <FS:Ansariel> FIRE-21236 - Help Menu - Check Grid Status doesn't open using External Browser
 void openGridStatus()
 {
-	if (LLWeb::useExternalBrowser(DEFAULT_GRID_STATUS_URL))
+	if (LLWeb::useExternalBrowser(LFSimFeatureHandler::instance().gridStatusURL()))
 	{
-		LLWeb::loadURLExternal(DEFAULT_GRID_STATUS_URL);
+		LLWeb::loadURLExternal(LFSimFeatureHandler::instance().gridStatusURL());
 	}
 	else
 	{

@@ -5438,7 +5438,7 @@ Falls der Fehler weiterhin auftritt, überprüfen Sie bitte Ihre Netzwerk- und F
 	<string name="PremiumMembership">
 		Premium
 	</string>
-	<string name="Premium PlusMembership">
+	<string name="Premium_PlusMembership">
 		Premium Plus
 	</string>
 	<string name="MembershipUpgradeText">
@@ -7037,6 +7037,16 @@ Ihre aktuelle Position: [AVATAR_POS]
 	</string>
 	<string name="fs_preprocessor_caching_err">
 		Fehler beim Cachen der eingebundenen Datei „[FILENAME]“.
+	</string>
+	<string name="fs_preprocessor_truncated">
+		Achtung: Präprozessor-Ausgabe wurde aufgrund exzessiver Textlänge gekürzt. Das Skript wird wahrscheinlich nicht funktionieren.
+	</string>
+
+	<string name="skin_defaults_starlight_location">
+		Die Anzeige der aktuellen Position in der Menüleiste wurde als Standard für Starlight-Oberflächendesigns deaktiviert.
+	</string>
+	<string name="skin_defaults_starlight_navbar">
+		Die Anzeige der Navigationsleiste wurde als Standard für Starlight-Oberflächendesigns aktiviert.
 	</string>
 
 	<string name="animation_explorer_seconds_ago">

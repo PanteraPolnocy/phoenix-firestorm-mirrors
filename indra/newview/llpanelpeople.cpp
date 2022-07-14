@@ -359,8 +359,7 @@ public:
 
 		// For notification when SIP online status changes.
 		LLVoiceClient::getInstance()->addObserver(this);
-		// <FS:Ansariel> Disconnect LLFriendCardsManager
-		//mInvObserver = new LLInventoryFriendCardObserver(this);
+		mInvObserver = new LLInventoryFriendCardObserver(this);
 	}
 
 	~LLFriendListUpdater()
@@ -413,8 +412,7 @@ public:
 
 private:
 	U32 mMask;
-	// <FS:Ansariel> Disconnect LLFriendCardsManager
-	//LLInventoryFriendCardObserver* mInvObserver;
+	LLInventoryFriendCardObserver* mInvObserver;
 	bool mIsActive;
 
 	/**
@@ -1257,9 +1255,9 @@ void LLPanelPeople::onGroupLimitInfo()
 	args["MAX_BASIC"] = max_basic;
 	args["MAX_PREMIUM"] = max_premium;
 
-	if (LLAgentBenefitsMgr::has("Premium Plus"))
+	if (LLAgentBenefitsMgr::has("Premium_Plus"))
 	{
-		S32 max_premium_plus = LLAgentBenefitsMgr::get("Premium Plus").getGroupMembershipLimit();
+		S32 max_premium_plus = LLAgentBenefitsMgr::get("Premium_Plus").getGroupMembershipLimit();
 		args["MAX_PREMIUM_PLUS"] = max_premium_plus;
 		LLNotificationsUtil::add("GroupLimitInfoPlus", args);
 	}
